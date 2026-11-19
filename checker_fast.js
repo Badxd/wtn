@@ -2,7 +2,13 @@ const makeWASocket = require('@whiskeysockets/baileys').default;
 const { useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const pino = require('pino');
-const qrcode = require('qrcode-terminal');
+
+// ==========================================
+// ⚠️ ITHE APNA WHATSAPP NUMBER PAAO
+// Country code naal, bina + ya 00 de.
+// India lyi: 91XXXXXXXXXX
+// ==========================================
+const PHONE_NUMBER = "919646191598"; // <--- EH BADAL
 
 console.log("🚀 Script start ho gayi hai...");
 
@@ -41,14 +47,27 @@ async function connectToWhatsApp() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
+    // Agar session pehla save nahi hoya, ta Pair Code request karo
+    if (!sock.authState.creds.registered) {
+        setTimeout(async () => {
+            try {
+                console.log(`\n🔑 Requesting Pairing Code for ${PHONE_NUMBER}...`);
+                const code = await sock.requestPairingCode(PHONE_NUMBER);
+                
+                console.log(`\n=========================================`);
+                console.log(`🔑 YOUR PAIR CODE: ${code}`);
+                console.log(`=========================================`);
+                console.log(`📱 WhatsApp kholo -> Linked Devices -> Link with phone number`);
+                console.log(`⌨️  Eh code enter karo: ${code}\n`);
+            } catch (error) {
+                console.error("❌ Pair code request fail ho geya:", error.message);
+                console.log("💡 Tip: Number sahi format vich hai? (e.g. 91XXXXXXXXXX)");
+            }
+        }, 3000); // 3 second wait karo socket connect hon lyi
+    }
 
-        // QR CODE PRINT KARAN WALI LOGIC
-        if (qr) {
-            console.log("\n📸 QR Code scan karo (WhatsApp > Linked Devices):\n");
-            qrcode.generate(qr, { small: true });
-        }
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect } = update;
 
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
@@ -57,10 +76,11 @@ async function connectToWhatsApp() {
                 await delay(5000);
                 connectToWhatsApp();
             } else {
-                console.log('❌ Logged out. Please scan QR again.');
+                console.log('❌ Logged out. Please run the script again to get a new code.');
             }
         } else if (connection === 'open') {
-            console.log(`✅ WhatsApp Connected! Checking ${remainingNumbers.length} numbers...`);
+            console.log(`\n✅ WhatsApp Connected Successfully!`);
+            console.log(`🚀 Checking ${remainingNumbers.length} numbers shuru ho rahi hai...\n`);
             await checkNumbersBatch(sock);
         }
     });
@@ -76,7 +96,7 @@ async function checkNumbersBatch(sock) {
         const currentBatchNum = Math.floor(i / BATCH_SIZE) + 1;
 
         try {
-            console.log(`\n[*] Checking Batch ${currentBatchNum}/${totalBatches} (${batch.length} numbers)...`);
+            console.log(`[*] Checking Batch ${currentBatchNum}/${totalBatches} (${batch.length} numbers)...`);
             
             const results = await sock.onWhatsApp(...jids);
 
