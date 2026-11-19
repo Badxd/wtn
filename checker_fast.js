@@ -11,23 +11,23 @@ const numbers = fs.readFileSync('numbers.txt', 'utf-8')
     .map(n => n.trim().replace(/[^0-9]/g, ''))
     .filter(n => n.length > 5 && n.length < 16);
 
+console.log(`📁 Total numbers file vich: ${numbers.length}`);
+
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Files load karo
 let validNumbers = [];
 let invalidNumbers = [];
-let skippedNumbers = []; // <-- NAYA: Jihna nu skip karna hai
+if (fs.existsSync('valid.txt')) {
+    validNumbers = fs.readFileSync('valid.txt', 'utf-8').split('\n').filter(n => n);
+}
+if (fs.existsSync('invalid.txt')) {
+    invalidNumbers = fs.readFileSync('invalid.txt', 'utf-8').split('\n').filter(n => n);
+}
 
-if (fs.existsSync('valid.txt')) validNumbers = fs.readFileSync('valid.txt', 'utf-8').split('\n').filter(n => n);
-if (fs.existsSync('invalid.txt')) invalidNumbers = fs.readFileSync('invalid.txt', 'utf-8').split('\n').filter(n => n);
-if (fs.existsSync('skip.txt')) skippedNumbers = fs.readFileSync('skip.txt', 'utf-8').split('\n').filter(n => n);
-
-// Oh numbers filter karo jo pehla check ho chuke ne ya skip ho chuke ne
-const checkedSet = new Set([...validNumbers, ...invalidNumbers, ...skippedNumbers]);
+const checkedSet = new Set([...validNumbers, ...invalidNumbers]);
 const remainingNumbers = numbers.filter(n => !checkedSet.has(n));
 
 console.log(`⏳ Check karan lyi bache numbers: ${remainingNumbers.length}`);
-console.log(`🚫 Skip kite hoye numbers: ${skippedNumbers.length}`);
 
 async function connectToWhatsApp() {
     console.log("🔌 WhatsApp naal connect karan di koshish kar reha haan...");
@@ -44,6 +44,7 @@ async function connectToWhatsApp() {
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
+        // QR CODE PRINT KARAN WALI LOGIC
         if (qr) {
             console.log("\n📸 QR Code scan karo (WhatsApp > Linked Devices):\n");
             qrcode.generate(qr, { small: true });
@@ -52,14 +53,14 @@ async function connectToWhatsApp() {
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
-                console.log('🔄 Connection closed. Reconnecting in 10s...');
-                await delay(10000);
+                console.log('🔄 Connection closed. Reconnecting in 5s...');
+                await delay(5000);
                 connectToWhatsApp();
             } else {
                 console.log('❌ Logged out. Please scan QR again.');
             }
         } else if (connection === 'open') {
-            console.log(`✅ WhatsApp Connected! Checking numbers...`);
+            console.log(`✅ WhatsApp Connected! Checking ${remainingNumbers.length} numbers...`);
             await checkNumbersBatch(sock);
         }
     });
@@ -92,35 +93,26 @@ async function checkNumbersBatch(sock) {
                 }
             }
 
-            // Save progress
             fs.writeFileSync('valid.txt', validNumbers.join('\n'));
             fs.writeFileSync('invalid.txt', invalidNumbers.join('\n'));
 
-            // Delay 8 to 12 seconds
             if (i + BATCH_SIZE < remainingNumbers.length) {
-                const randomDelay = Math.floor(Math.random() * 4000) + 8000; 
+                const randomDelay = Math.floor(Math.random() * 3000) + 3000; 
                 await delay(randomDelay);
             }
 
         } catch (error) {
-            console.error(`⚠️ Batch Error:`, error.message);
+            console.error(`⚠️ Batch Error on ${currentBatchNum}:`, error.message);
             
-            if (error.message.includes('Connection Closed') || error.message.includes('428') || error.message.includes('stream:error')) {
-                console.log('🔌 Socket dropped. Auto-saving progress and waiting 30s...');
-                
-                // Bache hoye numbers nu save karo taaki data na jaye
-                const unchecked = remainingNumbers.slice(i);
-                fs.writeFileSync('pending.txt', unchecked.join('\n'));
-                
-                await delay(30000);
-                connectToWhatsApp(); // Reconnect
-                return; // Loop stop karo, reconnect ton baad wapas shuru hoga
-            } 
-            else if (error.message.includes('rate-overlimit') || error.message.includes('429')) {
+            if (error.message.includes('rate-overlimit') || error.message.includes('429')) {
                 console.log('🛑 Rate limit hit! Waiting 60 seconds...');
                 await delay(60000);
                 i -= BATCH_SIZE; 
             } 
+            else if (error.message.includes('Connection Closed') || error.message.includes('stream:error')) {
+                console.log('🔌 Socket dropped. Restarting socket...');
+                throw error; 
+            }
             else {
                 console.log('⚠️ Unknown error, skipping batch after 10s...');
                 await delay(10000);
@@ -131,11 +123,12 @@ async function checkNumbersBatch(sock) {
     console.log('\n--- ✅ CHECK COMPLETE ---');
     console.log(`Total Valid: ${validNumbers.length}`);
     console.log(`Total Invalid: ${invalidNumbers.length}`);
+    console.log('Data saved to valid.txt and invalid.txt');
     process.exit(0); 
 }
 
 if (remainingNumbers.length === 0) {
-    console.log("All numbers are already checked or skipped.");
+    console.log("All numbers are already checked.");
 } else {
     connectToWhatsApp();
 }
