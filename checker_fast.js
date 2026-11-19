@@ -2,11 +2,16 @@ const makeWASocket = require('@whiskeysockets/baileys').default;
 const { useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const pino = require('pino');
+const qrcode = require('qrcode-terminal'); // <-- Eh nayi line add kiti hai
+
+console.log("🚀 Script start ho gayi hai...");
 
 const numbers = fs.readFileSync('numbers.txt', 'utf-8')
     .split('\n')
     .map(n => n.trim().replace(/[^0-9]/g, ''))
     .filter(n => n.length > 5 && n.length < 16);
+
+console.log(`📁 Total numbers file vich: ${numbers.length}`);
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -22,12 +27,14 @@ if (fs.existsSync('invalid.txt')) {
 const checkedSet = new Set([...validNumbers, ...invalidNumbers]);
 const remainingNumbers = numbers.filter(n => !checkedSet.has(n));
 
+console.log(`⏳ Check karan lyi bache numbers: ${remainingNumbers.length}`);
+
 async function connectToWhatsApp() {
+    console.log("🔌 WhatsApp naal connect karan di koshish kar reha haan...");
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys_fast');
     
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true,
         logger: pino({ level: 'silent' }),
         browser: ['Ubuntu', 'Chrome', '110.0.0'],
     });
@@ -35,7 +42,13 @@ async function connectToWhatsApp() {
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+
+        // QR CODE PRINT KARAN WALI LOGIC
+        if (qr) {
+            console.log("\n📸 QR Code scan karo (WhatsApp > Linked Devices):\n");
+            qrcode.generate(qr, { small: true });
+        }
 
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
