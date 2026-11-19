@@ -8,7 +8,7 @@ const pino = require('pino');
 // Country code naal, bina + ya 00 de.
 // India lyi: 91XXXXXXXXXX
 // ==========================================
-const PHONE_NUMBER = "919876543210"; // <--- EH BADAL
+const PHONE_NUMBER = "919646191598"; // <--- EH BADAL
 
 console.log("🚀 Script start ho gayi hai...");
 
