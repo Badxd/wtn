@@ -2,7 +2,7 @@ const makeWASocket = require('@whiskeysockets/baileys').default;
 const { useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const pino = require('pino');
-const qrcode = require('qrcode-terminal'); // <-- Eh nayi line add kiti hai
+const qrcode = require('qrcode-terminal');
 
 console.log("🚀 Script start ho gayi hai...");
 
@@ -131,4 +131,4 @@ if (remainingNumbers.length === 0) {
     console.log("All numbers are already checked.");
 } else {
     connectToWhatsApp();
-}
+        }
