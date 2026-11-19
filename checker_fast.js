@@ -3,7 +3,6 @@ const { useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/bai
 const fs = require('fs');
 const pino = require('pino');
 
-// File vicho numbers read karo
 const numbers = fs.readFileSync('numbers.txt', 'utf-8')
     .split('\n')
     .map(n => n.trim().replace(/[^0-9]/g, ''))
@@ -13,7 +12,6 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 let validNumbers = [];
 let invalidNumbers = [];
-
 if (fs.existsSync('valid.txt')) {
     validNumbers = fs.readFileSync('valid.txt', 'utf-8').split('\n').filter(n => n);
 }
@@ -31,7 +29,7 @@ async function connectToWhatsApp() {
         auth: state,
         printQRInTerminal: true,
         logger: pino({ level: 'silent' }),
-        browser: ['Ubuntu', 'Chrome', '110.0.0'], // Bot detection avoid karan lyi
+        browser: ['Ubuntu', 'Chrome', '110.0.0'],
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -56,7 +54,6 @@ async function connectToWhatsApp() {
 }
 
 async function checkNumbersBatch(sock) {
-    // 50 nahi, 5 numbers ek vaar vich (WhatsApp limit)
     const BATCH_SIZE = 5; 
     const totalBatches = Math.ceil(remainingNumbers.length / BATCH_SIZE);
     
@@ -83,11 +80,9 @@ async function checkNumbersBatch(sock) {
                 }
             }
 
-            // Save progress after every batch (Crash hove ta vi data bachega)
             fs.writeFileSync('valid.txt', validNumbers.join('\n'));
             fs.writeFileSync('invalid.txt', invalidNumbers.join('\n'));
 
-            // Smart delay: 3 to 6 seconds
             if (i + BATCH_SIZE < remainingNumbers.length) {
                 const randomDelay = Math.floor(Math.random() * 3000) + 3000; 
                 await delay(randomDelay);
@@ -96,16 +91,14 @@ async function checkNumbersBatch(sock) {
         } catch (error) {
             console.error(`⚠️ Batch Error on ${currentBatchNum}:`, error.message);
             
-            // Je rate limit lag gayi, ta 60 second ruko te ohi batch fer toh try karo
             if (error.message.includes('rate-overlimit') || error.message.includes('429')) {
                 console.log('🛑 Rate limit hit! Waiting 60 seconds...');
                 await delay(60000);
-                i -= BATCH_SIZE; // Retry same batch
+                i -= BATCH_SIZE; 
             } 
-            // Je connection drop ho geya
             else if (error.message.includes('Connection Closed') || error.message.includes('stream:error')) {
                 console.log('🔌 Socket dropped. Restarting socket...');
-                throw error; // Upar wala reconnect handle karega
+                throw error; 
             }
             else {
                 console.log('⚠️ Unknown error, skipping batch after 10s...');
@@ -118,10 +111,9 @@ async function checkNumbersBatch(sock) {
     console.log(`Total Valid: ${validNumbers.length}`);
     console.log(`Total Invalid: ${invalidNumbers.length}`);
     console.log('Data saved to valid.txt and invalid.txt');
-    process.exit(0); // Kaam khatam, exit ho jao
+    process.exit(0); 
 }
 
-// Start
 if (remainingNumbers.length === 0) {
     console.log("All numbers are already checked.");
 } else {
